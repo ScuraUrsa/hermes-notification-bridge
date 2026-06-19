@@ -1,34 +1,45 @@
-# Notification Bridge — Docker image
-# Multi-stage build: slim runtime, no dev dependencies
+# syntax=docker/dockerfile:1
+# Notification Bridge — multi-stage Python build
 
-FROM python:3.12-slim AS builder
+# ============================================================
+# Stage 1: Build — install dependencies
+# ============================================================
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ============================================================
+# Stage 2: Runtime — minimal image
+# ============================================================
+FROM python:3.11-slim
+
+# Create non-root user
+RUN groupadd -r bridge && useradd -r -g bridge -d /app -s /sbin/nologin bridge
 
 WORKDIR /app
 
+# Copy installed packages from builder (system-wide)
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
 COPY bridge/ bridge/
 COPY run_bridge.py .
 
-RUN pip install --no-cache-dir aiohttp
+# Ensure scripts are executable
+RUN chmod -R a+rX . && \
+    chown -R bridge:bridge /app
 
-FROM python:3.12-slim AS runtime
+# Switch to non-root user
+USER bridge
 
-WORKDIR /app
-
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /app /app
-
-RUN mkdir -p /data
-
-ENV BRIDGE_PORT=8655
-ENV BRIDGE_HOST=0.0.0.0
-ENV BRIDGE_AUTH_KEY=hermes-bridge-dev-key
-ENV BRIDGE_DB_PATH=/data/messages.db
-ENV BRIDGE_HEARTBEAT_INTERVAL=30
-ENV BRIDGE_MAX_MESSAGES=1000
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8655/health')" || exit 1
 
 EXPOSE 8655
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python3 -c "import urllib.request; import json; r=urllib.request.urlopen('http://localhost:8655/health'); assert json.loads(r.read())['status']=='ok'"
-
-CMD ["python3", "run_bridge.py"]
+CMD ["python", "run_bridge.py"]

@@ -1,5 +1,8 @@
-# Notification Bridge — Production Docker Compose
-# Run alongside existing Hermes stack (Open WebUI, Hermes API Server)
+# Notification Bridge — Production Deployment
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml up -d
+#   curl http://localhost:8655/health
 
 services:
   notification-bridge:
@@ -7,26 +10,24 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: hermes-notification-bridge
+    restart: unless-stopped
     ports:
       - "8655:8655"
     volumes:
-      - bridge-data:/data
+      - bridge-data:/app/data
     environment:
       - BRIDGE_PORT=8655
       - BRIDGE_HOST=0.0.0.0
       - BRIDGE_AUTH_KEY=${BRIDGE_AUTH_KEY:-hermes-bridge-dev-key}
-      - BRIDGE_DB_PATH=/data/messages.db
-      - BRIDGE_HEARTBEAT_INTERVAL=30
-      - BRIDGE_MAX_MESSAGES=1000
-    restart: unless-stopped
-    networks:
-      - hermes-net
+      - BRIDGE_DB_PATH=/app/data/messages.db
+      - BRIDGE_HEARTBEAT_INTERVAL=${BRIDGE_HEARTBEAT_INTERVAL:-30}
+      - BRIDGE_MAX_MESSAGES=${BRIDGE_MAX_MESSAGES:-1000}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8655/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   bridge-data:
-    driver: local
-
-networks:
-  hermes-net:
-    external: true
-    name: hermes-net

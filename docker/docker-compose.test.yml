@@ -1,5 +1,13 @@
-# Notification Bridge — Test Docker Compose
-# Includes redroid Android emulator for E2E testing
+# Notification Bridge — Test Deployment
+#
+# Includes:
+#   - notification-bridge (test config)
+#   - redroid Android 13 emulator (for E2E tests)
+#
+# Usage:
+#   docker compose -f docker/docker-compose.test.yml up -d
+#   adb connect localhost:5555
+#   curl http://localhost:8655/health
 
 services:
   notification-bridge:
@@ -10,41 +18,37 @@ services:
     ports:
       - "8655:8655"
     volumes:
-      - bridge-test-data:/data
+      - bridge-test-data:/app/data
     environment:
       - BRIDGE_PORT=8655
       - BRIDGE_HOST=0.0.0.0
       - BRIDGE_AUTH_KEY=test-bridge-key-2026
-      - BRIDGE_DB_PATH=/data/test-messages.db
+      - BRIDGE_DB_PATH=/app/data/test-messages.db
       - BRIDGE_HEARTBEAT_INTERVAL=5
       - BRIDGE_MAX_MESSAGES=100
-    restart: "no"
-    networks:
-      - test-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8655/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   redroid:
     image: redroid/redroid:13.0.0-latest
-    container_name: hermes-test-redroid
+    container_name: hermes-redroid-test
     ports:
       - "5555:5555"
     privileged: true
     volumes:
-      - redroid-test-data:/data
-    command:
-      - androidboot.redroid_height=1920
-      - androidboot.redroid_width=1080
-      - androidboot.redroid_dpi=480
-      - androidboot.redroid_net_ndns=8.8.8.8
-    restart: "no"
-    networks:
-      - test-net
+      - redroid-data:/data
+    environment:
+      - REDROID_OPTS=androidboot.hardware=redroid androidboot.redroid_gpu_mode=guest
+    command: >
+      androidboot.redroid_height=1920
+      androidboot.redroid_width=1080
+      androidboot.redroid_dpi=480
+      androidboot.redroid_net_ndns=8.8.8.8
 
 volumes:
   bridge-test-data:
-    driver: local
-  redroid-test-data:
-    driver: local
-
-networks:
-  test-net:
-    driver: bridge
+  redroid-data:

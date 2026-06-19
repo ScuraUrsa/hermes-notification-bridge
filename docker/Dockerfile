@@ -29,9 +29,10 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY bridge/ bridge/
 COPY run_bridge.py .
 
-# Ensure scripts are executable
-RUN chmod -R a+rX . && \
-    chown -R bridge:bridge /app
+# Ensure scripts are executable and data dir exists
+RUN mkdir -p /data && \
+    chmod -R a+rX . && \
+    chown -R bridge:bridge /app /data
 
 # Switch to non-root user
 USER bridge

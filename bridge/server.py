@@ -139,6 +139,14 @@ async def handle_test_last_delivery(request: web.Request) -> web.Response:
     })
 
 
+async def handle_test_reset(request: web.Request) -> web.Response:
+    """POST /test/reset — clear all messages and clients (test only)."""
+    msg_store.conn.execute("DELETE FROM messages")
+    msg_store.conn.execute("DELETE FROM clients")
+    msg_store.conn.commit()
+    return web.json_response({"status": "reset"})
+
+
 async def handle_events_ws(request: web.Request) -> web.WebSocketResponse:
     """GET /events/ws — WebSocket endpoint for Conduit."""
     ws = web.WebSocketResponse(max_msg_size=0)
@@ -235,6 +243,7 @@ def create_app() -> web.Application:
     app.router.add_post("/messages/{id}/read", handle_message_read)
     app.router.add_get("/stats", handle_stats)
     app.router.add_get("/test/last-delivery", handle_test_last_delivery)
+    app.router.add_post("/test/reset", handle_test_reset)
     app.router.add_get("/events/ws", handle_events_ws)
     app.router.add_get("/events", handle_events_sse)
 

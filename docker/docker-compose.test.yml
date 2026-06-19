@@ -37,8 +37,11 @@ services:
     image: redroid/redroid:13.0.0-latest
     container_name: hermes-redroid-test
     ports:
-      - "5555:5555"
+      - "5556:5555"
     privileged: true
+    devices:
+      - /dev/binder0:/dev/binder0
+      - /dev/ashmem:/dev/ashmem
     volumes:
       - redroid-data:/data
     environment:

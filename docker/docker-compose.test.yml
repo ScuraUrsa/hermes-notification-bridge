@@ -1,0 +1,50 @@
+# Notification Bridge — Test Docker Compose
+# Includes redroid Android emulator for E2E testing
+
+services:
+  notification-bridge:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: hermes-notification-bridge-test
+    ports:
+      - "8655:8655"
+    volumes:
+      - bridge-test-data:/data
+    environment:
+      - BRIDGE_PORT=8655
+      - BRIDGE_HOST=0.0.0.0
+      - BRIDGE_AUTH_KEY=test-bridge-key-2026
+      - BRIDGE_DB_PATH=/data/test-messages.db
+      - BRIDGE_HEARTBEAT_INTERVAL=5
+      - BRIDGE_MAX_MESSAGES=100
+    restart: "no"
+    networks:
+      - test-net
+
+  redroid:
+    image: redroid/redroid:13.0.0-latest
+    container_name: hermes-test-redroid
+    ports:
+      - "5555:5555"
+    privileged: true
+    volumes:
+      - redroid-test-data:/data
+    command:
+      - androidboot.redroid_height=1920
+      - androidboot.redroid_width=1080
+      - androidboot.redroid_dpi=480
+      - androidboot.redroid_net_ndns=8.8.8.8
+    restart: "no"
+    networks:
+      - test-net
+
+volumes:
+  bridge-test-data:
+    driver: local
+  redroid-test-data:
+    driver: local
+
+networks:
+  test-net:
+    driver: bridge

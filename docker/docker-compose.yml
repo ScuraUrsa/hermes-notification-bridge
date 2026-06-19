@@ -1,0 +1,32 @@
+# Notification Bridge — Production Docker Compose
+# Run alongside existing Hermes stack (Open WebUI, Hermes API Server)
+
+services:
+  notification-bridge:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: hermes-notification-bridge
+    ports:
+      - "8655:8655"
+    volumes:
+      - bridge-data:/data
+    environment:
+      - BRIDGE_PORT=8655
+      - BRIDGE_HOST=0.0.0.0
+      - BRIDGE_AUTH_KEY=${BRIDGE_AUTH_KEY:-hermes-bridge-dev-key}
+      - BRIDGE_DB_PATH=/data/messages.db
+      - BRIDGE_HEARTBEAT_INTERVAL=30
+      - BRIDGE_MAX_MESSAGES=1000
+    restart: unless-stopped
+    networks:
+      - hermes-net
+
+volumes:
+  bridge-data:
+    driver: local
+
+networks:
+  hermes-net:
+    external: true
+    name: hermes-net

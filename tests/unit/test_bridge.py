@@ -62,8 +62,12 @@ def bridge_app(tmp_path):
 
     import importlib
     import bridge.config
+    import bridge.models
+    import bridge.ws_manager
     import bridge.server
     importlib.reload(bridge.config)
+    importlib.reload(bridge.models)
+    importlib.reload(bridge.ws_manager)
     importlib.reload(bridge.server)
 
     app = bridge.server.create_app()
@@ -493,8 +497,8 @@ class TestMessagesEndpoint:
                     headers=auth_headers,
                 ) as _:
                     pass
-                ts_mid = int(time.time())
-                await asyncio.sleep(0.1)
+                ts_mid = int(time.time())  # capture before sleep
+                await asyncio.sleep(1.1)  # ensure next message has later timestamp
                 async with session.post(
                     f"http://localhost:{port}/push",
                     json={"title": "New", "body": "B"},

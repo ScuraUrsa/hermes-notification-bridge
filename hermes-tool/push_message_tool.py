@@ -174,22 +174,27 @@ PUSH_MESSAGE_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry
+# Only register when running inside hermes-agent (tools.registry is available).
+# When running standalone tests, this import is skipped.
+try:
+    from tools.registry import registry
 
-registry.register(
-    name="push_message",
-    toolset="messaging",
-    schema=PUSH_MESSAGE_SCHEMA,
-    handler=lambda args, **kw: push_message(
-        title=args.get("title", ""),
-        body=args.get("body", ""),
-        priority=args.get("priority", "normal"),
-        source=args.get("source", "system"),
-        action_url=args.get("action_url", ""),
-        voice=args.get("voice", False),
-        tts_text=args.get("tts_text", ""),
-        requires_reply=args.get("requires_reply", False),
-    ),
-    check_fn=_check_push_message,
-    emoji="🔔",
-)
+    registry.register(
+        name="push_message",
+        toolset="messaging",
+        schema=PUSH_MESSAGE_SCHEMA,
+        handler=lambda args, **kw: push_message(
+            title=args.get("title", ""),
+            body=args.get("body", ""),
+            priority=args.get("priority", "normal"),
+            source=args.get("source", "system"),
+            action_url=args.get("action_url", ""),
+            voice=args.get("voice", False),
+            tts_text=args.get("tts_text", ""),
+            requires_reply=args.get("requires_reply", False),
+        ),
+        check_fn=_check_push_message,
+        emoji="🔔",
+    )
+except ImportError:
+    pass  # Not running inside hermes-agent — standalone mode

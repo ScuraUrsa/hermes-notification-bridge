@@ -23,19 +23,31 @@ from push_message_tool import (
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_urlopen_mock(response_body: dict) -> MagicMock:
+    """Create a mock for urllib.request.urlopen that returns a context manager
+    yielding a response with the given JSON body."""
+    mock_response = MagicMock()
+    mock_response.read.return_value = json.dumps(response_body).encode("utf-8")
+    # urlopen is used as a context manager: `with urlopen(...) as resp:`
+    # So urlopen() must return an object whose __enter__ returns the mock_response
+    mock_ctx = MagicMock()
+    mock_ctx.__enter__.return_value = mock_response
+    return mock_ctx
+
+
+# ---------------------------------------------------------------------------
 # Success cases
 # ---------------------------------------------------------------------------
 
 class TestPushMessageSuccess:
     def test_basic_push(self):
         """Basic push with title and body returns success."""
-        mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "status": "delivered",
-            "id": "msg-test-123",
-        }).encode()
+        mock = _make_urlopen_mock({"status": "delivered", "id": "msg-test-123"})
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch("urllib.request.urlopen", return_value=mock):
             result = json.loads(push_message(
                 title="Test Title",
                 body="Test body content",
@@ -52,9 +64,7 @@ class TestPushMessageSuccess:
             captured_data["url"] = req.full_url
             captured_data["headers"] = dict(req.headers)
             captured_data["body"] = json.loads(req.data.decode())
-            mock = MagicMock()
-            mock.read.return_value = json.dumps({"status": "delivered", "id": "x"}).encode()
-            return mock
+            return _make_urlopen_mock({"status": "delivered", "id": "x"})
 
         with patch("urllib.request.urlopen", side_effect=capture_request):
             push_message(
@@ -84,9 +94,7 @@ class TestPushMessageSuccess:
 
         def capture_request(req, timeout=None):
             captured_data["body"] = json.loads(req.data.decode())
-            mock = MagicMock()
-            mock.read.return_value = json.dumps({"status": "delivered", "id": "x"}).encode()
-            return mock
+            return _make_urlopen_mock({"status": "delivered", "id": "x"})
 
         with patch("urllib.request.urlopen", side_effect=capture_request):
             push_message(title="T", body="B")
@@ -99,9 +107,7 @@ class TestPushMessageSuccess:
 
         def capture_request(req, timeout=None):
             captured_data["body"] = json.loads(req.data.decode())
-            mock = MagicMock()
-            mock.read.return_value = json.dumps({"status": "delivered", "id": "x"}).encode()
-            return mock
+            return _make_urlopen_mock({"status": "delivered", "id": "x"})
 
         with patch("urllib.request.urlopen", side_effect=capture_request):
             push_message(title="T", body="B")
@@ -114,9 +120,7 @@ class TestPushMessageSuccess:
 
         def capture_request(req, timeout=None):
             captured_data["body"] = json.loads(req.data.decode())
-            mock = MagicMock()
-            mock.read.return_value = json.dumps({"status": "delivered", "id": "x"}).encode()
-            return mock
+            return _make_urlopen_mock({"status": "delivered", "id": "x"})
 
         with patch("urllib.request.urlopen", side_effect=capture_request):
             push_message(title="T", body="B")
@@ -129,9 +133,7 @@ class TestPushMessageSuccess:
 
         def capture_request(req, timeout=None):
             captured_headers["auth"] = req.headers.get("Authorization")
-            mock = MagicMock()
-            mock.read.return_value = json.dumps({"status": "delivered", "id": "x"}).encode()
-            return mock
+            return _make_urlopen_mock({"status": "delivered", "id": "x"})
 
         with patch("urllib.request.urlopen", side_effect=capture_request):
             push_message(title="T", body="B")
@@ -179,11 +181,6 @@ class TestPushMessageErrors:
     def test_bridge_401(self):
         """HTTP 401 returns auth error."""
         import urllib.error
-        mock_error = MagicMock()
-        mock_error.code = 401
-        mock_error.reason = "Unauthorized"
-        mock_error.read.return_value = json.dumps({"error": "Unauthorized"}).encode()
-
         with patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
             "http://bridge:8655/push", 401, "Unauthorized", {}, None
         )):
@@ -219,10 +216,9 @@ class TestPushMessageErrors:
 class TestCheckFunction:
     def test_bridge_up(self):
         """_check_push_message returns True when /health returns ok."""
-        mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({"status": "ok"}).encode()
+        mock = _make_urlopen_mock({"status": "ok"})
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch("urllib.request.urlopen", return_value=mock):
             assert _check_push_message() is True
 
     def test_bridge_down(self):
@@ -233,10 +229,9 @@ class TestCheckFunction:
 
     def test_bridge_health_not_ok(self):
         """_check_push_message returns False when /health returns non-ok status."""
-        mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({"status": "degraded"}).encode()
+        mock = _make_urlopen_mock({"status": "degraded"})
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch("urllib.request.urlopen", return_value=mock):
             assert _check_push_message() is False
 
     def test_bridge_health_timeout(self):
@@ -254,17 +249,15 @@ class TestValidValues:
     def test_all_priorities_accepted(self):
         """All valid priorities are accepted."""
         for priority in VALID_PRIORITIES:
-            mock_response = MagicMock()
-            mock_response.read.return_value = json.dumps({"status": "delivered", "id": "x"}).encode()
-            with patch("urllib.request.urlopen", return_value=mock_response):
+            mock = _make_urlopen_mock({"status": "delivered", "id": "x"})
+            with patch("urllib.request.urlopen", return_value=mock):
                 result = json.loads(push_message(title="T", body="B", priority=priority))
                 assert "error" not in result, f"Priority '{priority}' should be valid"
 
     def test_all_sources_accepted(self):
         """All valid sources are accepted."""
         for source in VALID_SOURCES:
-            mock_response = MagicMock()
-            mock_response.read.return_value = json.dumps({"status": "delivered", "id": "x"}).encode()
-            with patch("urllib.request.urlopen", return_value=mock_response):
+            mock = _make_urlopen_mock({"status": "delivered", "id": "x"})
+            with patch("urllib.request.urlopen", return_value=mock):
                 result = json.loads(push_message(title="T", body="B", source=source))
                 assert "error" not in result, f"Source '{source}' should be valid"

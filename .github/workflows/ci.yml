@@ -45,7 +45,7 @@ jobs:
           python -m pytest tests/e2e/ -v --timeout=30 --asyncio-mode=auto
 
   docker-build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     needs: [unit-tests, e2e-tests]
     steps:
       - uses: actions/checkout@v4

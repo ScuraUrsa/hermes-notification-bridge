@@ -8,7 +8,7 @@ on:
 
 jobs:
   unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,7 +26,7 @@ jobs:
           python -m pytest tests/unit/ -v --timeout=30 --asyncio-mode=auto
 
   e2e-tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     needs: unit-tests
     steps:
       - uses: actions/checkout@v4

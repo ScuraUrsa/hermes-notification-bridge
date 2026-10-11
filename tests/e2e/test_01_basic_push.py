@@ -56,6 +56,26 @@ def auth_headers():
 
 
 # ---------------------------------------------------------------------------
+# Helper: next pushed message from a WebSocket
+# ---------------------------------------------------------------------------
+
+async def receive_message(ws, timeout=5):
+    """Return the next 'message' event from the WebSocket, skipping heartbeats.
+
+    The heartbeat interval is 3s, so on a slow machine a heartbeat can arrive
+    before the pushed message.
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while True:
+        msg = await asyncio.wait_for(ws.receive(), timeout=max(deadline - loop.time(), 0.01))
+        assert msg.type == WSMsgType.TEXT, f"Unexpected WebSocket frame: {msg.type}"
+        data = json.loads(msg.data)
+        if data.get("event") != "heartbeat":
+            return data
+
+
+# ---------------------------------------------------------------------------
 # Helper: start app, return (base_url, runner) for cleanup
 # ---------------------------------------------------------------------------
 
@@ -112,11 +132,9 @@ async def test_basic_push_delivery(bridge_app, auth_headers):
                     msg_id = push_result["id"]
 
                 # 5. Receive via WebSocket
-                ws_msg = await asyncio.wait_for(ws.receive(), timeout=5)
+                ws_data = await receive_message(ws)
                 t1 = time.monotonic()
 
-                assert ws_msg.type == WSMsgType.TEXT
-                ws_data = json.loads(ws_msg.data)
                 assert ws_data["event"] == "message"
                 assert ws_data["data"]["title"] == "GATE TEST"
                 assert ws_data["data"]["body"] == "This message proves bidirectional messaging works end-to-end."
@@ -170,11 +188,9 @@ async def test_multiple_messages_sequentially(bridge_app, auth_headers):
                 # Collect all 5 messages
                 received = []
                 for _ in range(5):
-                    msg = await asyncio.wait_for(ws.receive(), timeout=5)
-                    if msg.type == WSMsgType.TEXT:
-                        data = json.loads(msg.data)
-                        if data.get("event") == "message":
-                            received.append(data["data"]["title"])
+                    data = await receive_message(ws)
+                    if data.get("event") == "message":
+                        received.append(data["data"]["title"])
 
                 assert received == sent_titles, f"Order mismatch: {received} != {sent_titles}"
 
@@ -206,8 +222,7 @@ async def test_websocket_reconnection(bridge_app, auth_headers):
                 ) as resp:
                     assert resp.status == 201
 
-                msg = await asyncio.wait_for(ws1.receive(), timeout=5)
-                data = json.loads(msg.data)
+                data = await receive_message(ws1)
                 assert data["data"]["title"] == "First"
 
             # Second client connects, receives new message
@@ -219,8 +234,7 @@ async def test_websocket_reconnection(bridge_app, auth_headers):
                 ) as resp:
                     assert resp.status == 201
 
-                msg = await asyncio.wait_for(ws2.receive(), timeout=5)
-                data = json.loads(msg.data)
+                data = await receive_message(ws2)
                 assert data["data"]["title"] == "Second"
     finally:
         await runner.cleanup()
@@ -248,11 +262,8 @@ async def test_concurrent_clients(bridge_app, auth_headers):
                 ) as resp:
                     assert resp.status == 201
 
-                msg1 = await asyncio.wait_for(ws1.receive(), timeout=5)
-                msg2 = await asyncio.wait_for(ws2.receive(), timeout=5)
-
-                data1 = json.loads(msg1.data)
-                data2 = json.loads(msg2.data)
+                data1 = await receive_message(ws1)
+                data2 = await receive_message(ws2)
                 assert data1["data"]["title"] == "Broadcast"
                 assert data2["data"]["title"] == "Broadcast"
     finally:

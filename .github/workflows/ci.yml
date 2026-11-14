@@ -10,7 +10,7 @@ jobs:
   unit-tests:
     runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,7 +29,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     needs: unit-tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -48,7 +48,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     needs: [unit-tests, e2e-tests]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build Docker image
         run: |

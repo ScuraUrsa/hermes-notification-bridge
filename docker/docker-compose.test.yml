@@ -34,7 +34,7 @@ services:
       start_period: 5s
 
   redroid:
-    image: redroid/redroid:13.0.0-latest
+    image: redroid/redroid:16.0.0-latest
     container_name: hermes-redroid-test
     ports:
       - "5556:5555"

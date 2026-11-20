@@ -4,7 +4,7 @@
 # ============================================================
 # Stage 1: Build — install dependencies
 # ============================================================
-FROM python:3.11-slim AS builder
+FROM python:3.15-slim AS builder
 
 WORKDIR /build
 
@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ============================================================
 # Stage 2: Runtime — minimal image
 # ============================================================
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 # Create non-root user
 RUN groupadd -r bridge && useradd -r -g bridge -d /app -s /sbin/nologin bridge
